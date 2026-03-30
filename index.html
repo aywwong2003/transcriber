@@ -3,253 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Transcriber</title>
+    <title>Voice Transcriber Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .glow { box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
-        .recording-pulse { animation: pulse 1.5s infinite; }
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.8; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .mic-meter-container {
-            height: 8px;
-            background: #e2e8f0;
-            border-radius: 4px;
-            overflow: hidden;
-            width: 100%;
-        }
-        #micMeter {
-            height: 100%;
-            width: 0%;
-            background: #3b82f6;
-            transition: width 0.1s ease-out;
-        }
+        .mic-meter-container { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; width: 100%; }
+        #micMeter { height: 100%; width: 0%; background: #3b82f6; transition: width 0.1s ease-out; }
+        #debugConsole { font-family: monospace; font-size: 10px; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+<body class="bg-slate-100 min-h-screen p-4 flex flex-col items-center justify-center">
 
-    <div class="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden border border-slate-200">
-        <!-- Header -->
-        <div class="bg-slate-900 p-6 text-white">
-            <h1 class="text-2xl font-bold">Voice Transcriber</h1>
-            <p class="text-slate-400 text-sm mt-1">Multi-language Speech-to-Text</p>
+    <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        <div class="bg-slate-900 p-5 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">Transcriber</h1>
+                <p class="text-slate-400 text-xs">Mobile Test Build</p>
+            </div>
+            <div id="connectionStatus" class="w-3 h-3 rounded-full bg-slate-600"></div>
         </div>
 
-        <!-- Controls -->
-        <div class="p-6 space-y-6">
-            <!-- Hardware Test Section -->
-            <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-semibold text-blue-800 flex items-center gap-1">
-                        🔊 Hardware Test
-                    </span>
-                    <span id="meterLabel" class="text-[10px] uppercase font-bold text-blue-400 tracking-wider">Inactive</span>
+        <div class="p-5 space-y-4">
+            <!-- Mic Test -->
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div class="flex justify-between text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    <span>Mic Input Level</span>
+                    <span id="meterLabel">Ready</span>
                 </div>
                 <div class="mic-meter-container">
                     <div id="micMeter"></div>
                 </div>
-                <p class="text-[11px] text-blue-600 mt-2">If the blue bar moves when you talk, your microphone is working correctly.</p>
             </div>
 
-            <!-- Permission Alert -->
-            <div id="permissionAlert" class="hidden bg-amber-50 border border-amber-200 p-4 rounded-lg flex flex-col gap-2">
-                <div class="flex items-center gap-2 text-amber-800 font-semibold">
-                    <span>⚠️</span> Permission Required
-                </div>
-                <p class="text-sm text-amber-700">The browser cannot access your microphone. Please click the button below to manually request access.</p>
-                <button id="requestPermsBtn" class="w-fit text-xs bg-amber-200 hover:bg-amber-300 px-3 py-1.5 rounded font-bold transition-colors">Grant Microphone Access</button>
-                <p id="permErrorText" class="text-xs text-red-600 font-bold hidden"></p>
-            </div>
-
-            <div class="flex flex-col sm:flex-row gap-4">
-                <div class="flex-1">
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Select Language</label>
-                    <select id="languageSelect" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                        <option value="zh-HK">Cantonese (粵語 - 香港)</option>
-                        <option value="zh-CN">Mandarin (普通話 - 中国)</option>
-                        <option value="en-US" selected>English (United States)</option>
-                    </select>
-                </div>
+            <!-- Language & Start -->
+            <div class="grid grid-cols-1 gap-3">
+                <select id="languageSelect" class="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="en-US">English (US)</option>
+                    <option value="zh-HK">Cantonese (香港)</option>
+                    <option value="zh-CN">Mandarin (中国)</option>
+                </select>
                 
-                <div class="flex items-end">
-                    <button id="toggleBtn" class="w-full sm:w-auto px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">
-                        <span id="btnIcon">🎤</span>
-                        <span id="btnText">Start Recording</span>
-                    </button>
-                </div>
+                <button id="toggleBtn" class="w-full py-4 bg-blue-600 active:bg-blue-800 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                    <span id="btnIcon">🎤</span>
+                    <span id="btnText">Start Transcription</span>
+                </button>
             </div>
 
-            <!-- Status Indicator -->
-            <div id="status" class="hidden flex items-center gap-2 text-sm text-blue-600 font-medium italic">
-                <span class="w-2 h-2 bg-blue-600 rounded-full recording-pulse"></span>
-                Listening...
+            <!-- Transcription Area -->
+            <div id="output" class="w-full min-h-[150px] p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 leading-relaxed whitespace-pre-wrap italic">
+                Waiting for speech...
             </div>
 
-            <!-- Output Area -->
-            <div class="relative">
-                <label class="block text-sm font-medium text-slate-700 mb-1">Transcription Result</label>
-                <div id="output" class="w-full min-h-[200px] max-h-[400px] overflow-y-auto p-4 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 leading-relaxed whitespace-pre-wrap">
-                    <span id="placeholderText" class="text-slate-400 italic">Your transcription will appear here...</span>
+            <!-- Mobile Debug Logs (Hidden by default, useful for troubleshooting) -->
+            <details class="mt-2">
+                <summary class="text-[10px] text-slate-400 cursor-pointer uppercase font-bold tracking-widest">System Logs</summary>
+                <div id="debugConsole" class="mt-2 p-2 bg-black text-green-400 rounded max-h-32 overflow-y-auto">
+                    > System initialized.
                 </div>
-                
-                <div class="mt-4 flex gap-2">
-                    <button id="copyBtn" class="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded-md font-medium transition-colors">Copy Text</button>
-                    <button id="clearBtn" class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-md font-medium transition-colors">Clear</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500">
-            <p>If "Start" doesn't work, ensure you are using <span class="font-bold">HTTPS</span> or a <span class="font-bold">Localhost</span> environment.</p>
+            </details>
         </div>
     </div>
 
     <script>
+        const debug = (msg) => {
+            const consoleEl = document.getElementById('debugConsole');
+            consoleEl.innerHTML += `<div>> ${msg}</div>`;
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        };
+
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const toggleBtn = document.getElementById('toggleBtn');
-        const btnText = document.getElementById('btnText');
-        const btnIcon = document.getElementById('btnIcon');
         const output = document.getElementById('output');
-        const langSelect = document.getElementById('languageSelect');
-        const statusIndicator = document.getElementById('status');
-        const copyBtn = document.getElementById('copyBtn');
-        const clearBtn = document.getElementById('clearBtn');
-        const permissionAlert = document.getElementById('permissionAlert');
-        const requestPermsBtn = document.getElementById('requestPermsBtn');
         const micMeter = document.getElementById('micMeter');
-        const meterLabel = document.getElementById('meterLabel');
+        const connectionStatus = document.getElementById('connectionStatus');
 
         let isRecording = false;
-        let fullTranscript = '';
-        let audioContext, analyser, microphone, javascriptNode;
+        let recognition;
+        let audioCtx, analyser, stream;
 
-        // Visualizer Setup
-        async function startVisualizer() {
+        // 1. Setup Audio Meter (Local processing)
+        async function initMicMeter() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                microphone = audioContext.createMediaStreamSource(stream);
-                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                const source = audioCtx.createMediaStreamSource(stream);
+                const processor = audioCtx.createScriptProcessor(2048, 1, 1);
 
-                analyser.smoothingTimeConstant = 0.8;
-                analyser.fftSize = 1024;
+                source.connect(analyser);
+                analyser.connect(processor);
+                processor.connect(audioCtx.destination);
 
-                microphone.connect(analyser);
-                analyser.connect(javascriptNode);
-                javascriptNode.connect(audioContext.destination);
-
-                javascriptNode.onaudioprocess = function() {
-                    const array = new Uint8Array(analyser.frequencyBinCount);
-                    analyser.getByteFrequencyData(array);
-                    let values = 0;
-                    for (let i = 0; i < array.length; i++) {
-                        values += array[i];
-                    }
-                    const average = values / array.length;
-                    micMeter.style.width = Math.min(100, average * 2) + '%';
-                    meterLabel.innerText = "Active";
-                    meterLabel.classList.replace('text-blue-400', 'text-green-500');
+                processor.onaudioprocess = () => {
+                    const data = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(data);
+                    const avg = data.reduce((a, b) => a + b) / data.length;
+                    micMeter.style.width = Math.min(100, avg * 2.5) + '%';
                 };
-            } catch (err) {
-                console.warn("Visualizer failed:", err);
-                meterLabel.innerText = "Error: No Mic Found";
-                meterLabel.classList.replace('text-blue-400', 'text-red-500');
+                debug("Mic hardware linked to meter.");
+            } catch (e) {
+                debug(`Mic Error: ${e.message}`);
+                document.getElementById('meterLabel').innerText = "Access Denied";
             }
         }
 
-        // Start visualizer on load
-        window.addEventListener('load', startVisualizer);
-
+        // 2. Setup Transcription (Server processing)
         if (!SpeechRecognition) {
-            output.innerHTML = '<span class="text-red-500">Error: Your browser does not support Web Speech API. Use Chrome.</span>';
-            toggleBtn.disabled = true;
-            toggleBtn.style.opacity = '0.5';
+            debug("Critical: SpeechRecognition API not found.");
+            output.innerText = "Error: This browser doesn't support transcription. Please use Chrome or Safari.";
         } else {
-            const recognition = new SpeechRecognition();
-            recognition.continuous = true;
+            recognition = new SpeechRecognition();
+            // MOBILE FIX: Some phones fail if continuous is true
+            recognition.continuous = true; 
             recognition.interimResults = true;
-
-            requestPermsBtn.addEventListener('click', async () => {
-                const errText = document.getElementById('permErrorText');
-                errText.classList.remove('hidden');
-                errText.innerText = "Requesting...";
-                
-                try {
-                    await navigator.mediaDevices.getUserMedia({ audio: true });
-                    permissionAlert.classList.add('hidden');
-                    startVisualizer();
-                } catch (err) {
-                    errText.innerText = `Error: ${err.name}. Please run outside the preview window.`;
-                }
-            });
 
             recognition.onstart = () => {
                 isRecording = true;
-                btnText.innerText = "Stop Recording";
-                btnIcon.innerText = "⏹️";
+                connectionStatus.className = "w-3 h-3 rounded-full bg-green-500 animate-pulse";
+                document.getElementById('btnText').innerText = "Stop Recording";
                 toggleBtn.classList.replace('bg-blue-600', 'bg-red-600');
-                statusIndicator.classList.remove('hidden');
-                permissionAlert.classList.add('hidden');
+                debug("Service: Listening (Connected to cloud)");
             };
 
             recognition.onresult = (event) => {
-                let interimTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        fullTranscript += transcript + ' ';
-                    } else {
-                        interimTranscript += transcript;
-                    }
+                let final = "";
+                let interim = "";
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) final += event.results[i][0].transcript;
+                    else interim += event.results[i][0].transcript;
                 }
-                output.innerHTML = `<span>${fullTranscript}</span><span class="text-blue-500">${interimTranscript}</span>`;
+                output.innerHTML = `<span>${final}</span><span class="text-blue-500">${interim}</span>`;
             };
 
-            recognition.onerror = (event) => {
-                if (event.error === 'not-allowed') permissionAlert.classList.remove('hidden');
-                stopRecognition();
+            recognition.onerror = (e) => {
+                debug(`Service Error: ${e.error}`);
+                if (e.error === 'network') debug("TIP: Check your internet connection.");
+                if (e.error === 'no-speech') debug("TIP: Try speaking closer to the mic.");
+                stop();
             };
 
-            recognition.onend = () => { if (isRecording) stopRecognition(); };
-
-            function stopRecognition() {
-                recognition.stop();
-                isRecording = false;
-                btnText.innerText = "Start Recording";
-                btnIcon.innerText = "🎤";
-                toggleBtn.classList.replace('bg-red-600', 'bg-blue-600');
-                statusIndicator.classList.add('hidden');
-            }
-
-            toggleBtn.addEventListener('click', () => {
-                if (isRecording) stopRecognition();
-                else {
-                    recognition.lang = langSelect.value;
-                    try { recognition.start(); } catch (e) { console.error(e); }
-                }
-            });
-
-            clearBtn.addEventListener('click', () => {
-                fullTranscript = '';
-                output.innerHTML = '<span class="text-slate-400 italic">Your transcription will appear here...</span>';
-            });
-
-            copyBtn.addEventListener('click', () => {
-                const text = output.innerText;
-                const dummy = document.createElement("textarea");
-                document.body.appendChild(dummy);
-                dummy.value = text;
-                dummy.select();
-                document.execCommand("copy");
-                document.body.removeChild(dummy);
-                const originalText = copyBtn.innerText;
-                copyBtn.innerText = "Copied!";
-                setTimeout(() => copyBtn.innerText = originalText, 2000);
-            });
+            recognition.onend = () => {
+                debug("Service disconnected.");
+                if (isRecording) recognition.start(); // Auto-restart for mobile
+            };
         }
+
+        function stop() {
+            isRecording = false;
+            recognition.stop();
+            connectionStatus.className = "w-3 h-3 rounded-full bg-slate-600";
+            document.getElementById('btnText').innerText = "Start Transcription";
+            toggleBtn.classList.replace('bg-red-600', 'bg-blue-600');
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            if (isRecording) stop();
+            else {
+                recognition.lang = document.getElementById('languageSelect').value;
+                recognition.start();
+            }
+        });
+
+        // Initialize mic meter on load
+        window.addEventListener('load', initMicMeter);
     </script>
 </body>
 </html>
